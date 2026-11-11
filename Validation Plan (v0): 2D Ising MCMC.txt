@@ -1,0 +1,86 @@
+Specification: What the code must do?
+S1. Energy function 
+For an NxN grid of spins (either +1 or -1) with periodic boundaries (N ≥ 3), E(s) = -J*B(s), where B(s) is the sum of the s_i*s_j over the nearest neighbor bond counted once. There are 2N^2 bonds. j = k_B = 1 unless J is a parameter.
+
+S2. Single-flip energy change
+Flipping spin s_i changes the energy by ΔE = 2*J*s_i*(sum of its 4 neighbors). This must equal E(after) - E(before).
+
+S3. Metropolis step
+Choose a site uniformly at random and propose flipping it. Accept with probability min(1, e^(−ΔE/T)). One sweep is N^2 such attempts. The chain's stationary distribution must be P(s) ∝ e^(−E(s)/T).
+
+S4. Data generator 
+Draw K independent configurations from P(s | J, T) by exact sampling from the enumerated 4×4 distribution. This deliberately avoids using your Metropolis code, so the data generator and the sampler under test are independent.
+
+S5.Likelihood 
+log L(J,T) = (J/T)·ΣB(s_k) − K·log Z(J/T), with Z computed by enumerating all 65,536 states. Note that L depends on J and T only through the ratio J/T.
+
+S6. Posterior
+Uniform priors J ∈ [0.1, 3] and T ∈ [0.5, 6] (change these in a revision if the posterior hits a boundary).
+
+S7. Samplers
+Metropolis-Hastings with a Gaussian random-walk proposal, with step sizes tuned during burn-in only and then frozen. Compare it against emcee.
+
+
+Predictions 
+P1. The posterior in (J, T) is a ridge along J/T = const. The ratio J/T is tightly constrained and J alone is mostly prior-dominated. 
+
+P2. Histogram of M is symmetric about 0 for every T.
+
+P3. Below T_c ≈ 2.27 on larger grids, chains started all-up and all-down stay in opposite sectors for a very long time.
+
+P4.  Autocorrelation time of M peaks near T_c and grows with N.
+
+P5. As T→0, E/N² → −2 and |M| → 1. As T→∞, E/N² → 0 and |M| → 0.
+
+P6. With more configurations K, the credible region around the ridge shrinks.
+
+Tests
+TA. Deterministic correctness
+TA1. All-up grid has E = −2JN². A checkerboard (even N) has E = +2JN².
+TA2. On 1000 random grids and random sites, dE from the formula equals E(flipped) − E(original).
+TA3. Energy is invariant under s → −s, and under translations by np.roll.
+
+TB. Known analytic answer
+TB1. Fix a configuration where one site has ΔE = 4. At T = 2, run 10⁵ single attempts.
+TB2. 3×3 full-distribution test. Enumerate all 512 states and compute exact P(s) at T = 2. Run a long chain and compare visit frequencies.
+TB3. 4×4 exact moments. Enumerate 65,536 states and compute exact ⟨E⟩/N², ⟨|M|⟩, ⟨M²⟩ at T = 1.5, 2.27, 4.0. Compare to MCMC averages.
+TB4. Limits (P5): run at T = 0.3 from the all-up start and at T = 50.
+TB5. Onsager comparison: scan T on N = 8, 16, 32. The |M|(T) curve should steepen with N and cross near 2/ln(1+√2) ≈ 2.269.
+
+TC. Symmetry and degeneracy 
+TC1. M histogram symmetry (P2), pooled over chains started from up and down.
+TC2. Ridge test (P1): fit (J, T) posterior samples. Compute the posterior of J/T and of J separately.
+TC3. Same likelihood value for (J, T) and (2J, 2T), to machine precision.
+
+TD. Convergence diagnostics
+TD1. Trace plots (informal)  E/N² and |M| versus sweep
+TD2. Split Gelman-Rubin R̂ (numerical)  E/N², |M|, and M
+TD3. Integrated autocorrelation time τ (Sokal windowing)  M, E
+TD4. First-half versus second-half comparison (Geweke-style)  Mean of E
+
+TE. Injection and recovery 
+TE1. Posterior check against quadrature. For one synthetic dataset (e.g. K = 20, J = 1, T = 2.5), compute the posterior on a (J, T) grid by direct summation. Compare hand-written MH marginals to it.
+TE2. Coverage. Repeat on 200 synthetic datasets with (J_true, T_true) drawn from the prior. Count how often the truth lies inside the 68% credible interval for J/T.
+TE3. Repeat E1 with K = 5, 20, 80.
+
+TF. Hand-written versus off-the-shelf 
+TF1. Same data, same priors. Run hand-written MH and emcee. Compare posterior means, sds, and the 16/50/84 percentiles of J/T.
+TF2. Two-sample KS test on thinned samples of J/T and of T.
+TF3. Both against the quadrature reference from E1.
+TF4. Compare τ and ESS-per-second for each sampler.
+
+How would you know the code is wrong?
+- Any A-test failure: indexing or energy bug.
+- B2 or B3 failing consistently across seeds: acceptance rule or detailed balance.
+- Chains agreeing with each other but disagreeing with exact enumeration: a shared systematic bug. R̂ cannot catch this, which is why the exact tests exist.
+- R̂ ≫ 1 on E or |M| at high T, where mixing should be fast: a bug, not physics.
+- A posterior that is not a ridge in (J, T), or that excludes the true J/T in E2: wrong likelihood.
+- Hand-written and emcee samplers disagreeing while only one matches the quadrature: that sampler is the culprit.
+
+What counts as enough evidence? 
+All A, B1–B4, C3, E1, and E2 must pass. D2 on E and |M| must pass at every T used for reported results. Where one sampler fails (e.g. emcee struggling on the sharp ridge), the report must analyze why, per the assignment. Failures that match a written prediction (P3) count as confirmation of understanding.
+
+
+
+
+
