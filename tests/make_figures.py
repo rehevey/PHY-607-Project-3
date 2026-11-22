@@ -85,7 +85,10 @@ def overdispersed(n, T, n_run, seed):
         _cache[key] = out
     return _cache[key]
 
-def test_D1_trace_plots(seed, tmp_path):
+import os
+
+def test_D1_trace_plots(seed):
+    import pathlib
     import matplotlib.pyplot as plt
 
     out = overdispersed(8, 3.5, N_RUN + BURN, seed)
@@ -95,5 +98,26 @@ def test_D1_trace_plots(seed, tmp_path):
         ax[1].plot(np.abs(M[:2000]), lw=0.6, label=name)
     ax[0].set_ylabel("E/N^2")
     ax[1].set_ylabel("|M|")
+    ax[0].set_xlabel("sweep")
+    ax[1].set_xlabel("sweep")
     ax[0].legend()
-    plt.show()
+    fig.tight_layout()
+    path = pathlib.Path("traces.png").resolve()
+    fig.savefig(path, dpi=150)
+    print("saved to", path)
+    assert path.exists()
+
+from test_ising import starts, run_chain  # same helpers the test uses
+
+rng = np.random.default_rng(900)
+fig, ax = plt.subplots(1, 2, figsize=(11, 3.5))
+for name, init in starts(8, rng).items():
+    E, M = run_chain(init, 1.0, 3.5, 2000, rng, n_burn=0)
+    ax[0].plot(E, lw=0.6, label=name)
+    ax[1].plot(np.abs(M), lw=0.6, label=name)
+ax[0].set_ylabel("E/N^2"); ax[1].set_ylabel("|M|")
+ax[0].set_xlabel("sweep"); ax[1].set_xlabel("sweep")
+ax[0].legend()
+fig.tight_layout()
+fig.savefig("traces.png", dpi=150)
+print("saved to", os.path.abspath("traces.png"))
